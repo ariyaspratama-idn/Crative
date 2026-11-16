@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Platform {
+  GOFOOD
+  GRABFOOD
+  SHOPEEFOOD
+}
+
+enum ClaimStatus {
+  NEEDS_REVIEW
+  APPROVED
+  REJECTED
+  WAITING_REPORT
+}
+
+enum LedgerReason {
+  CLAIM
+  WEB_ORDER
+  REDEEM
+  EXPIRE
+  ADJUST
+}
+
+enum RewardType {
+  VOUCHER_2K
+  FREE_BOTTLE
+}
+
+enum RewardStatus {
+  AVAILABLE
+  USED
+  EXPIRED
+}
+
+enum MemberDataRequestType {
+  ACCESS
+  RECTIFICATION
+  ERASURE
+}
+
+enum MemberDataRequestStatus {
+  PENDING
+  IN_REVIEW
+  COMPLETED
+  DECLINED
+}
+
+enum OrderStatus {
+  AWAITING_QUOTE
+  AWAITING_PAYMENT
+  PAYMENT_REVIEW
+  PAID
+  PROCESSING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum Fulfillment {
+  PICKUP
+  DELIVERY
+}
+
+model Member {
+  id               String       @id @default(cuid())
+  waNumber         String       @unique
+  waVerifiedAt     DateTime?
+  consentPrivacyAt DateTime
+  consentPromoAt   DateTime?
+  lastActivityAt   DateTime     @default(now())
+  stampExpiryProcessedAt DateTime?
+  createdAt        DateTime     @default(now())
+  deletedAt        DateTime?
+  sessions         Session[]
+  claims           Claim[]
+  ledger           StampLedger[]
+  waVerification   WaVerification?
+  rewards          Reward[]
+  dataRequests     MemberDataRequest[]
+  orders           WebOrder[]
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  memberId   String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime @default(now())
+  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, expiresAt])
+}
+
+model LoginChallenge {
+  id            String    @id @default(cuid())
+  waNumber      String    @db.VarChar(15)
+  codeHash      String    @unique @db.Char(64)
+  consentPromo  Boolean   @default(false)
+  requestedAt   DateTime  @default(now())
+  expiresAt     DateTime
+  attempts      Int       @default(0)
+  consumedAt    DateTime?
+
+  @@index([waNumber, expiresAt])
+  @@index([expiresAt])
+}
+
+model Claim {
+  id                String      @id @default(cuid())
+  memberId          String
+  platform          Platform
+  orderId           String
+  dedupeKey         String?     @unique
+  claimedBottleCount Int
+  status            ClaimStatus @default(NEEDS_REVIEW)
+  reasonCode        String?
+  imageKey          String?
+  imageHash         String?
+  orderedAt         DateTime?
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  createdAt         DateTime     @default(now())
+  member            Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  receiptFingerprint ClaimReceiptFingerprint?
+
+  @@index([status, createdAt])
+  @@index([imageHash])
+  @@index([memberId, createdAt])
+}
+
+model ClaimReceiptFingerprint {
+  imageHash String   @id @db.Char(64)
+  claimId   String?  @unique
+  createdAt DateTime @default(now())
+  claim     Claim?   @relation(fields: [claimId], references: [id], onDelete: Cascade)
+}
+
+model StampLedger {
+  id        String       @id @default(cuid())
+  memberId  String
+  delta     Int
+  reason    LedgerReason
+  refType   String?
+  refId     String?
+  createdAt DateTime     @default(now())
+  member    Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, createdAt])
+  @@unique([reason, refType, refId])
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorEmail String
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorEmail, createdAt])
+}
+
+model Setting {
+  key   String @id @db.VarChar(100)
+  value Json
+}
+
+model WaVerification {
+  id          String    @id @default(cuid())
+  memberId    String    @unique
+  codeHash    String    @unique
+  requestedAt DateTime  @default(now())
+  expiresAt   DateTime
+  confirmedAt DateTime?
+  confirmedBy String?
+  member      Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model Reward {
+  id        String       @id @default(cuid())
+  memberId  String
+  type      RewardType
+  code      String       @unique
+  status    RewardStatus @default(AVAILABLE)
+  expiresAt DateTime?
+  usedAt    DateTime?
+  createdAt DateTime     @default(now())
+  member    Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  webOrder  WebOrder?
+
+  @@index([memberId, status, expiresAt])
+}
+
+model MemberDataRequest {
+  id          String                  @id @default(cuid())
+  memberId    String
+  type        MemberDataRequestType
+  status      MemberDataRequestStatus @default(PENDING)
+  details     String?                 @db.VarChar(500)
+  resolution  String?                 @db.VarChar(500)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  member      Member                  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([memberId, createdAt])
+}
+
+model RateLimitBucket {
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@id([key, windowStart])
+  @@index([updatedAt])
+}
+
+model WebOrder {
+  id              String      @id @default(cuid())
+  code            String      @unique
+  memberId        String
+  status          OrderStatus @default(AWAITING_PAYMENT)
+  fulfillment     Fulfillment
+  deliveryAddress String?     @db.VarChar(400)
+  note            String?     @db.VarChar(250)
+  subtotal        Int
+  discount        Int         @default(0)
+  deliveryFee     Int?
+  total           Int?
+  rewardId        String?     @unique
+  paymentProofKey String?
+  paymentProofHash String?     @unique
+  paidAt          DateTime?
+  statusUpdatedAt DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+  member          Member      @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  reward          Reward?     @relation(fields: [rewardId], references: [id], onDelete: SetNull)
+  items           WebOrderItem[]
+  stockAllocations OrderBatchAllocation[]
+
+  @@index([memberId, createdAt])
+  @@index([status, createdAt])
+}
+
+model WebOrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  productId String   @db.VarChar(40)
+  name      String   @db.VarChar(100)
+  quantity  Int
+  unitPrice Int
+  isReward  Boolean  @default(false)
+  order     WebOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model ProductBatch {
+  id                String   @id @default(cuid())
+  productId         String   @db.VarChar(40)
+  batchCode         String   @db.VarChar(80)
+  quantityProduced  Int
+  quantityAvailable Int
+  bestBeforeAt      DateTime?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  allocations       OrderBatchAllocation[]
+
+  @@unique([productId, batchCode])
+  @@index([productId, isActive, bestBeforeAt])
+}
+
+model OrderBatchAllocation {
+  id        String       @id @default(cuid())
+  orderId   String
+  batchId   String
+  quantity  Int
+  createdAt DateTime     @default(now())
+  order     WebOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  batch     ProductBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([batchId])
+}
