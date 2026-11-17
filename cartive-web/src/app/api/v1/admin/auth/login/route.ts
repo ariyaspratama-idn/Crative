@@ -6,9 +6,10 @@ import {
   ADMIN_SESSION_LIFETIME_SECONDS,
   AdminAuthConfigurationError,
   createAdminSession,
+  getAdminRateLimitSecret,
   verifyAdminCredentials,
 } from "@/lib/admin-auth";
-import { ConfigurationError, databaseUnavailableResponse, isSameOrigin } from "@/lib/security";
+import { databaseUnavailableResponse, isSameOrigin } from "@/lib/security";
 
 const loginSchema = z.object({
   email: z.string().email().max(254),
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
       parsed.data.email.trim().toLowerCase(),
       15 * 60 * 1000,
       5,
+      getAdminRateLimitSecret(),
     );
     if (!rateLimit.allowed) {
       return Response.json(
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest) {
     });
     return response;
   } catch (error) {
-    if (error instanceof AdminAuthConfigurationError || error instanceof ConfigurationError) {
+    if (error instanceof AdminAuthConfigurationError) {
       return Response.json(
         { data: null, error: { code: "ADMIN_AUTH_UNAVAILABLE", message: "Autentikasi admin belum dikonfigurasi lengkap." } },
         { status: 503 },

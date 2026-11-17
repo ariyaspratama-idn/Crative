@@ -56,6 +56,10 @@ function getAdminSettings(): AdminSettings {
   return { allowedEmails, password, sessionSecret };
 }
 
+export function getAdminRateLimitSecret() {
+  return getAdminSettings().sessionSecret;
+}
+
 function signature(payload: string, secret: string) {
   return createHmac("sha256", secret).update(payload).digest("base64url");
 }

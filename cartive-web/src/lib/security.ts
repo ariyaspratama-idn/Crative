@@ -38,8 +38,8 @@ export function createSessionToken() {
   return randomBytes(32).toString("base64url");
 }
 
-export function hashRateLimitKey(value: string) {
-  return createHmac("sha256", getSessionSecret()).update(value).digest("hex");
+export function hashRateLimitKey(value: string, secret = getSessionSecret()) {
+  return createHmac("sha256", secret).update(value).digest("hex");
 }
 
 export function getRequestIp(request: NextRequest) {

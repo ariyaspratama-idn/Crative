@@ -9,11 +9,12 @@ export async function consumeRateLimit(
   identifier: string,
   windowMs: number,
   maximum: number,
+  secret?: string,
 ) {
   const db = getDb();
   const now = new Date();
   const windowStart = new Date(Math.floor(now.getTime() / windowMs) * windowMs);
-  const key = hashRateLimitKey(`${name}:${identifier}`);
+  const key = hashRateLimitKey(`${name}:${identifier}`, secret);
   const bucket = await db.rateLimitBucket.upsert({
     where: { key_windowStart: { key, windowStart } },
     create: { key, windowStart, count: 1 },
