@@ -1,35 +1,27 @@
-import { createPublicKey, verify as verifySignature } from "node:crypto";
+import "server-only";
 
-type CloudflareJwk = {
-  kid: string;
-  kty: string;
-  alg?: string;
-  n: string;
-  e: string;
-};
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+export const ADMIN_SESSION_COOKIE = "cartive_admin_session";
+export const ADMIN_SESSION_LIFETIME_SECONDS = 8 * 60 * 60;
 
 type AdminSettings = {
-  teamDomain: string;
-  audience: string;
   allowedEmails: Set<string>;
+  password: string;
+  sessionSecret: string;
 };
 
-type AccessClaims = {
-  aud?: string | string[];
-  email?: string;
-  exp?: number;
-  iss?: string;
-  nbf?: number;
-  iat?: number;
-};
-
-type CachedKeys = {
-  teamDomain: string;
+type AdminSession = {
+  email: string;
   expiresAt: number;
-  keys: CloudflareJwk[];
 };
 
-let cachedKeys: CachedKeys | undefined;
+export class AdminAuthConfigurationError extends Error {
+  constructor() {
+    super("Akses admin memerlukan kata sandi admin, secret sesi, dan daftar email admin.");
+    this.name = "AdminAuthConfigurationError";
+  }
+}
 
 function getLocalDevelopmentAdmin(headers: Headers) {
   if (process.env.NODE_ENV !== "development") return null;
@@ -40,23 +32,9 @@ function getLocalDevelopmentAdmin(headers: Headers) {
   return null;
 }
 
-export class AdminAuthUnavailableError extends Error {
-  constructor() {
-    super("Verifikasi akses admin sementara tidak tersedia.");
-    this.name = "AdminAuthUnavailableError";
-  }
-}
-
-export class AdminAuthConfigurationError extends Error {
-  constructor() {
-    super("Akses admin memerlukan domain, audience Cloudflare Access, dan daftar email admin.");
-    this.name = "AdminAuthConfigurationError";
-  }
-}
-
 function getAdminSettings(): AdminSettings {
-  const teamDomain = process.env.CLOUDFLARE_ACCESS_TEAM_DOMAIN?.trim().toLowerCase();
-  const audience = process.env.CLOUDFLARE_ACCESS_AUD?.trim();
+  const password = process.env.ADMIN_PASSWORD;
+  const sessionSecret = process.env.ADMIN_SESSION_SECRET;
   const allowedEmails = new Set(
     (process.env.ADMIN_EMAILS ?? "")
       .split(",")
@@ -65,74 +43,60 @@ function getAdminSettings(): AdminSettings {
   );
 
   if (
-    !teamDomain ||
-    !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(teamDomain) ||
-    !audience ||
+    !password ||
+    password.length < 16 ||
+    password.length > 256 ||
+    !sessionSecret ||
+    sessionSecret.length < 32 ||
     allowedEmails.size === 0
   ) {
     throw new AdminAuthConfigurationError();
   }
 
-  return { teamDomain, audience, allowedEmails };
+  return { allowedEmails, password, sessionSecret };
 }
 
-function decodeSegment<T>(segment: string): T | null {
-  if (!/^[A-Za-z0-9_-]+$/.test(segment)) return null;
-  try {
-    return JSON.parse(Buffer.from(segment, "base64url").toString("utf8")) as T;
-  } catch (error) {
-    if (error instanceof SyntaxError) return null;
-    throw error;
-  }
+function signature(payload: string, secret: string) {
+  return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
-async function getCloudflareKeys(teamDomain: string) {
-  if (
-    cachedKeys?.teamDomain === teamDomain &&
-    cachedKeys.expiresAt > Date.now()
-  ) {
-    return cachedKeys.keys;
+function safeEqual(left: string, right: string) {
+  const leftDigest = createHmac("sha256", "cartive-admin-comparison").update(left).digest();
+  const rightDigest = createHmac("sha256", "cartive-admin-comparison").update(right).digest();
+  return timingSafeEqual(leftDigest, rightDigest);
+}
+
+function readCookie(headers: Headers, cookieName: string) {
+  const cookies = headers.get("cookie")?.split(";") ?? [];
+  for (const cookie of cookies) {
+    const separator = cookie.indexOf("=");
+    if (separator < 0 || cookie.slice(0, separator).trim() !== cookieName) continue;
+    return cookie.slice(separator + 1).trim();
   }
+  return null;
+}
 
-  let response: Response;
-  try {
-    response = await fetch(
-      `https://${teamDomain}/cdn-cgi/access/certs`,
-      { cache: "no-store", signal: AbortSignal.timeout(5000) },
-    );
-  } catch {
-    throw new AdminAuthUnavailableError();
+export function verifyAdminCredentials(email: string, password: string) {
+  const settings = getAdminSettings();
+  const normalizedEmail = email.trim().toLowerCase();
+  const passwordMatches = safeEqual(password, settings.password);
+  return settings.allowedEmails.has(normalizedEmail) && passwordMatches
+    ? { email: normalizedEmail }
+    : null;
+}
+
+export function createAdminSession(email: string) {
+  const settings = getAdminSettings();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!settings.allowedEmails.has(normalizedEmail)) {
+    throw new AdminAuthConfigurationError();
   }
-
-  if (!response.ok) throw new AdminAuthUnavailableError();
-
-  let body: { keys?: unknown };
-  try {
-    body = (await response.json()) as { keys?: CloudflareJwk[] };
-  } catch {
-    throw new AdminAuthUnavailableError();
-  }
-
-  const keys = Array.isArray(body.keys)
-    ? body.keys.filter(
-        (key): key is CloudflareJwk =>
-          typeof key === "object" &&
-          key !== null &&
-      typeof key.kid === "string" &&
-      key.kty === "RSA" &&
-      typeof key.n === "string" &&
-      typeof key.e === "string" &&
-      (!key.alg || key.alg === "RS256"),
-      )
-    : [];
-  if (!keys?.length) throw new AdminAuthUnavailableError();
-
-  cachedKeys = {
-    teamDomain,
-    keys,
-    expiresAt: Date.now() + 5 * 60 * 1000,
+  const session: AdminSession = {
+    email: normalizedEmail,
+    expiresAt: Math.floor(Date.now() / 1000) + ADMIN_SESSION_LIFETIME_SECONDS,
   };
-  return keys;
+  const payload = Buffer.from(JSON.stringify(session)).toString("base64url");
+  return `${payload}.${signature(payload, settings.sessionSecret)}`;
 }
 
 export async function getAdminIdentity(headers: Headers): Promise<string | null> {
@@ -140,50 +104,30 @@ export async function getAdminIdentity(headers: Headers): Promise<string | null>
   if (localAdmin) return localAdmin;
 
   const settings = getAdminSettings();
-  const token = headers.get("cf-access-jwt-assertion");
-  if (!token) return null;
+  const token = readCookie(headers, ADMIN_SESSION_COOKIE);
+  if (!token || token.length > 2048) return null;
 
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const header = decodeSegment<{ alg?: string; kid?: string }>(parts[0]);
-  const claims = decodeSegment<AccessClaims>(parts[1]);
-  if (!header || !claims || header.alg !== "RS256" || !header.kid) return null;
+  const [payload, providedSignature, extra] = token.split(".");
+  if (!payload || !providedSignature || extra !== undefined) return null;
+  if (!safeEqual(providedSignature, signature(payload, settings.sessionSecret))) return null;
 
-  const now = Math.floor(Date.now() / 1000);
-  const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-  if (
-    claims.iss !== `https://${settings.teamDomain}` ||
-    !audiences.includes(settings.audience) ||
-    typeof claims.exp !== "number" ||
-    claims.exp <= now ||
-    (typeof claims.nbf === "number" && claims.nbf > now + 60) ||
-    (typeof claims.iat === "number" && claims.iat > now + 60)
-  ) {
+  let session: AdminSession;
+  try {
+    session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as AdminSession;
+  } catch {
     return null;
   }
 
-  const email = claims.email?.trim().toLowerCase();
-  if (!email || !settings.allowedEmails.has(email)) return null;
-
-  const key = (await getCloudflareKeys(settings.teamDomain)).find(
-    (candidate) => candidate.kid === header.kid,
-  );
-  if (!key) return null;
-
-  let validSignature = false;
-  try {
-    validSignature = verifySignature(
-      "RSA-SHA256",
-      Buffer.from(`${parts[0]}.${parts[1]}`),
-      createPublicKey({ key, format: "jwk" }),
-      Buffer.from(parts[2], "base64url"),
-    );
-  } catch (error) {
-    if (error instanceof TypeError) return null;
-    throw error;
+  const email = typeof session.email === "string" ? session.email.trim().toLowerCase() : "";
+  if (
+    !email ||
+    !settings.allowedEmails.has(email) ||
+    !Number.isSafeInteger(session.expiresAt) ||
+    session.expiresAt <= Math.floor(Date.now() / 1000)
+  ) {
+    return null;
   }
-
-  return validSignature ? email : null;
+  return email;
 }
 
 export async function authorizeAdmin(headers: Headers) {
@@ -197,13 +141,10 @@ export async function authorizeAdmin(headers: Headers) {
       ),
     } as const;
   } catch (error) {
-    if (
-      error instanceof AdminAuthConfigurationError ||
-      error instanceof AdminAuthUnavailableError
-    ) {
+    if (error instanceof AdminAuthConfigurationError) {
       return {
         response: Response.json(
-          { data: null, error: { code: "ADMIN_AUTH_UNAVAILABLE", message: "Akses admin belum dikonfigurasi atau sementara tidak tersedia." } },
+          { data: null, error: { code: "ADMIN_AUTH_UNAVAILABLE", message: "Autentikasi admin belum dikonfigurasi." } },
           { status: 503 },
         ),
       } as const;

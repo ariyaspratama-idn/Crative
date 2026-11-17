@@ -3868,6 +3868,36 @@ a:focus-visible {
     padding: 44px 0 80px;
   }
 
+  .admin-login-content {
+    display: grid;
+    min-height: calc(100vh - 66px);
+    align-content: center;
+    justify-items: center;
+  }
+
+  .admin-login-card {
+    width: min(420px, 100%);
+    padding: 28px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--soft-shadow);
+  }
+
+  .admin-login-card h1 {
+    margin: 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(26px, 5vw, 36px);
+    font-weight: 400;
+    letter-spacing: -1px;
+  }
+
+  .admin-login-card form {
+    display: grid;
+    gap: 14px;
+    margin-top: 24px;
+  }
+
   .admin-title-row,
   .admin-claim-heading,
   .admin-claim-actions {

@@ -54,7 +54,7 @@ export default function PrivasiPage() {
         </section>
         <section>
           <h2>Penyedia layanan</h2>
-          <p>Website menggunakan penyedia hosting dan basis data; Cloudflare untuk perlindungan akses; OneSignal hanya bagi pelanggan yang secara terpisah mengaktifkan push; serta penyimpanan object privat untuk foto struk dan bukti pembayaran. Cloudinary hanya melayani aset gambar katalog publik. Telegram menerima alert operasional admin tanpa data pribadi pelanggan. Login tetap menggunakan WhatsApp; Brevo dan email pelanggan tidak digunakan. Lingkungan staging dapat memakai Vercel, TiDB Cloud, dan penyedia storage yang dikonfigurasi. Daftar penyedia final, lokasi pemrosesan, kontak Cartive, dan masa retensi lengkap perlu dipastikan sebelum go-live.</p>
+          <p>Website menggunakan penyedia hosting dan basis data; perlindungan anti-bot untuk formulir tertentu; OneSignal hanya bagi pelanggan yang secara terpisah mengaktifkan push; serta penyimpanan object privat untuk foto struk dan bukti pembayaran. Cloudinary hanya melayani aset gambar katalog publik. Telegram menerima alert operasional admin tanpa data pribadi pelanggan. Login pelanggan tetap menggunakan WhatsApp; panel admin menggunakan login aplikasi. Brevo dan email pelanggan tidak digunakan. Lingkungan staging dapat memakai Vercel, TiDB Cloud, dan penyedia storage yang dikonfigurasi. Daftar penyedia final, lokasi pemrosesan, kontak Cartive, dan masa retensi lengkap perlu dipastikan sebelum go-live.</p>
         </section>
       </article>
       <footer className="site-footer">

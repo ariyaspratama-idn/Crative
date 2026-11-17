@@ -207,6 +207,22 @@ export default function AdminClaimsClient({ adminEmail }: { adminEmail: string }
   const [rewardCode, setRewardCode] = useState("");
   const [redeemingReward, setRedeemingReward] = useState(false);
   const [rewardError, setRewardError] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
+
+  async function signOut() {
+    setSigningOut(true);
+    setSignOutError("");
+    try {
+      const response = await fetch("/api/v1/admin/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Sesi belum dapat diakhiri.");
+      window.location.reload();
+    } catch (error) {
+      setSignOutError(error instanceof Error ? error.message : "Sesi belum dapat diakhiri.");
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   const loadQueue = useCallback(async (cursor?: string, append = false) => {
     if (append) setLoadingMore(true);
@@ -305,9 +321,15 @@ export default function AdminClaimsClient({ adminEmail }: { adminEmail: string }
           <span className="admin-account-indicator" aria-hidden="true" />
           <span>Masuk sebagai <strong>{adminEmail}</strong></span>
           <Link className="admin-store-link" href="/">Lihat toko <span aria-hidden="true">↗</span></Link>
+          {adminEmail !== "local-dev@cartive.test" && (
+            <button className="admin-button" type="button" onClick={() => void signOut()} disabled={signingOut}>
+              {signingOut ? "Keluar..." : "Keluar"}
+            </button>
+          )}
         </div>
       </header>
       <section className="admin-content">
+        {signOutError && <p className="admin-error" role="alert">{signOutError}</p>}
         {adminEmail === "local-dev@cartive.test" && (
           <p className="admin-notice admin-dev-banner" role="note">
             <span className="admin-dev-banner-icon" aria-hidden="true">⌘</span>
