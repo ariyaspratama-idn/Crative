@@ -116,7 +116,7 @@ export default function AdminOrdersPanel() {
           <p className="admin-description">Konfirmasi ongkir dan bukti pembayaran sebelum memproses pesanan.</p>
         </div>
         <div className="admin-orders-actions">
-          <a className="admin-button admin-button-refresh" href="/api/v1/admin/export/orders.csv">
+          <a className="admin-button admin-button-refresh" href="/api/v1/admin/export/orders.csv" download>
             Ekspor CSV
           </a>
           <button className="admin-button admin-button-refresh" type="button" onClick={() => { setLoading(true); setError(""); void loadOrders(); }} disabled={loading}>

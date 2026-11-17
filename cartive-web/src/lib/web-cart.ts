@@ -17,13 +17,23 @@ export function normalizeCart(value: unknown): CartItem[] {
     }
 
     const candidate = item as { productId: unknown; quantity: unknown };
-    const product = products.find((entry) => entry.id === candidate.productId);
-    if (!product || !Number.isInteger(candidate.quantity) || typeof candidate.quantity !== "number") {
+    if (
+      typeof candidate.productId !== "string" ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(candidate.productId) ||
+      !Number.isInteger(candidate.quantity) ||
+      typeof candidate.quantity !== "number"
+    ) {
       continue;
     }
 
     const quantity = Math.min(20, Math.max(0, candidate.quantity));
-    if (quantity > 0) quantities.set(product.id, Math.min(20, (quantities.get(product.id) ?? 0) + quantity));
+    if (quantity > 0) {
+      if (!quantities.has(candidate.productId) && quantities.size >= 20) continue;
+      quantities.set(
+        candidate.productId,
+        Math.min(20, (quantities.get(candidate.productId) ?? 0) + quantity),
+      );
+    }
   }
 
   return [...quantities].map(([productId, quantity]) => ({ productId, quantity }));
@@ -34,8 +44,8 @@ export function getCartSubtotal(
   configuredPrices?: ReadonlyMap<string, number>,
 ) {
   return items.reduce((subtotal, item) => {
-    const product = products.find((entry) => entry.id === item.productId);
-    const price = configuredPrices?.get(item.productId) ?? product?.price ?? 0;
+    const defaultProduct = products.find((product) => product.id === item.productId);
+    const price = configuredPrices?.get(item.productId) ?? defaultProduct?.price ?? 0;
     return subtotal + price * item.quantity;
   }, 0);
 }

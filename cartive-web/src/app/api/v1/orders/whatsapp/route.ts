@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { NextRequest } from "next/server";
-import { getProduct } from "@/lib/catalog";
 import { getCatalogProducts } from "@/lib/catalog-settings";
 import { getDb } from "@/lib/db";
 import { buildManualOrderMessage } from "@/lib/manual-order";
@@ -14,7 +13,7 @@ const orderRequestSchema = z.object({
   items: z.array(z.object({
     productId: z.string().min(1).max(40),
     quantity: z.number().int().min(1).max(20),
-  }).strict()).min(1).max(6),
+  }).strict()).min(1).max(20),
 }).strict().superRefine((order, context) => {
   if (order.fulfillment === "DELIVERY" && !order.address?.trim()) {
     context.addIssue({
@@ -51,13 +50,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (parsed.data.items.some((item) => !getProduct(item.productId))) {
-    return Response.json(
-      { data: null, error: { code: "INVALID_PRODUCT", message: "Salah satu produk tidak tersedia di katalog." } },
-      { status: 400 },
-    );
-  }
-
   let catalog;
   try {
     catalog = await getCatalogProducts(getDb());
@@ -76,11 +68,10 @@ export async function POST(request: NextRequest) {
     );
   }
   const items = parsed.data.items.map((item) => {
-    const product = getProduct(item.productId);
     const configured = configuredById.get(item.productId);
-    if (!product || !configured) return null;
+    if (!configured) return null;
     return {
-      product: { ...product, price: configured.price },
+      product: configured,
       quantity: item.quantity,
     };
   });

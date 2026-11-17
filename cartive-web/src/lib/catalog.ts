@@ -55,7 +55,15 @@ export const products = [
   },
 ] as const;
 
-export type CatalogProduct = (typeof products)[number];
+export type CatalogProduct = {
+  id: string;
+  name: string;
+  line: string;
+  description: string;
+  note: string;
+  tone: string;
+  price: number;
+};
 export type ProductId = CatalogProduct["id"];
 
 export function getProduct(productId: string) {

@@ -7,8 +7,8 @@ import CoffeeBeanIcon from "@/components/coffee-bean-icon";
 import CoffeeShopArt from "@/components/coffee-shop-art";
 
 export const metadata: Metadata = {
-  title: "Menu Cartive — Reka & Sela",
-  description: "Jelajahi enam varian kopi botol Cartive dari lini Reka dan Sela.",
+  title: "Menu Cartive — Pilihan kopi botol",
+  description: "Jelajahi pilihan kopi botol Cartive dan temukan varian favoritmu.",
 };
 
 export default function MenuPage() {
@@ -59,7 +59,7 @@ export default function MenuPage() {
             <h2>Temukan <em>favoritmu.</em></h2>
           </div>
           <p className="section-intro">
-            Reka untuk rasa kopi yang tegas. Sela untuk jeda yang lembut dan creamy.
+            Jelajahi lini dan varian yang tersedia di katalog Cartive.
           </p>
         </div>
         <MenuCatalog />

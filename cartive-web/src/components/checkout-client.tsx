@@ -149,18 +149,18 @@ export default function CheckoutClient() {
                   {reward.type === "VOUCHER_2K" ? "Voucher Rp2.000" : "1 botol gratis"} · {reward.code}
                 </option>
               ))}
-              {catalogError && (
-                <p className="manual-order-disclaimer" role="status">
-                  Harga atau ketersediaan belum dapat diperbarui. Total final akan dihitung ulang oleh server saat pesanan dibuat.
-                </p>
-              )}
-              {unavailableItems.length > 0 && (
-                <p className="form-alert form-alert-error" role="alert">
-                  Produk {unavailableItems.map((item) => catalogById.get(item.productId)?.name ?? item.productId).join(", ")} sedang tidak ditawarkan. Hapus dari keranjang sebelum melanjutkan.
-                </p>
-              )}
             </select>
           </label>
+          {catalogError && (
+            <p className="manual-order-disclaimer" role="status">
+              Harga atau ketersediaan belum dapat diperbarui. Total final akan dihitung ulang oleh server saat pesanan dibuat.
+            </p>
+          )}
+          {!catalogLoading && unavailableItems.length > 0 && (
+            <p className="form-alert form-alert-error" role="alert">
+              Produk {unavailableItems.map((item) => catalogById.get(item.productId)?.name ?? item.productId).join(", ")} sedang tidak ditawarkan. Hapus dari keranjang sebelum melanjutkan.
+            </p>
+          )}
           {selectedReward?.type === "FREE_BOTTLE" && (
             activeProducts.length > 0 ? (
               <label className="manual-order-field">

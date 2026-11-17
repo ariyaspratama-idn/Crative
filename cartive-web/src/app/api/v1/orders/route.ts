@@ -1,8 +1,7 @@
 import { Prisma, type OrderStatus } from "@prisma/client";
 import { z } from "zod";
 import { NextRequest } from "next/server";
-import { getProduct } from "@/lib/catalog";
-import { getCatalogProducts } from "@/lib/catalog-settings";
+import { getCatalogProducts, type CatalogProductSettings } from "@/lib/catalog-settings";
 import { getDb } from "@/lib/db";
 import { sendAdminAlert } from "@/lib/external-notifications";
 import { getCurrentMember } from "@/lib/member-session";
@@ -31,7 +30,7 @@ const orderSchema = z.object({
   items: z.array(z.object({
     productId: z.string().min(1).max(40),
     quantity: z.number().int().min(1).max(20),
-  }).strict()).min(1).max(6),
+  }).strict()).min(1).max(20),
 }).strict().superRefine((order, context) => {
   if (order.fulfillment === "DELIVERY" && !order.address?.trim()) {
     context.addIssue({
@@ -108,38 +107,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const requestedProducts = new Map<string, number>();
-  for (const item of parsed.data.items) {
-    if (!getProduct(item.productId)) {
+  try {
+    const db = getDb();
+    const configuredCatalog = await getCatalogProducts(db);
+    const configuredById = new Map(configuredCatalog.map((product) => [product.id, product]));
+    const requestedProducts = new Map<string, number>();
+    for (const item of parsed.data.items) {
+      if (!configuredById.has(item.productId)) {
+        return Response.json(
+          { data: null, error: { code: "INVALID_PRODUCT", message: "Salah satu produk tidak tersedia." } },
+          { status: 400 },
+        );
+      }
+      requestedProducts.set(
+        item.productId,
+        (requestedProducts.get(item.productId) ?? 0) + item.quantity,
+      );
+      if (requestedProducts.get(item.productId)! > 20) {
+        return Response.json(
+          { data: null, error: { code: "INVALID_QUANTITY", message: "Jumlah maksimal setiap varian adalah 20 botol per pesanan." } },
+          { status: 400 },
+        );
+      }
+    }
+    const requestedCatalogProducts: Array<{ product: CatalogProductSettings; quantity: number }> = [];
+    for (const [productId, quantity] of requestedProducts) {
+      const product = configuredById.get(productId);
+      if (product) requestedCatalogProducts.push({ product, quantity });
+    }
+    if (requestedCatalogProducts.length !== requestedProducts.size) {
       return Response.json(
         { data: null, error: { code: "INVALID_PRODUCT", message: "Salah satu produk tidak tersedia." } },
         { status: 400 },
       );
     }
-    requestedProducts.set(
-      item.productId,
-      (requestedProducts.get(item.productId) ?? 0) + item.quantity,
-    );
-    if (requestedProducts.get(item.productId)! > 20) {
-      return Response.json(
-        { data: null, error: { code: "INVALID_QUANTITY", message: "Jumlah maksimal setiap varian adalah 20 botol per pesanan." } },
-        { status: 400 },
-      );
-    }
-  }
-  const products: Array<{ product: NonNullable<ReturnType<typeof getProduct>>; quantity: number }> = [];
-  for (const [productId, quantity] of requestedProducts) {
-    const product = getProduct(productId);
-    if (product) products.push({ product, quantity });
-  }
-  if (products.length !== requestedProducts.size) {
-    return Response.json(
-      { data: null, error: { code: "INVALID_PRODUCT", message: "Salah satu produk tidak tersedia." } },
-      { status: 400 },
-    );
-  }
 
-  try {
     const member = await getCurrentMember();
     if (!member) {
       return Response.json(
@@ -165,11 +167,10 @@ export async function POST(request: NextRequest) {
     }
 
     const isPickup = parsed.data.fulfillment === "PICKUP";
-    const db = getDb();
     const createOrder = () => db.$transaction(async (transaction) => {
       const catalog = await getCatalogProducts(transaction);
       const catalogById = new Map(catalog.map((product) => [product.id, product]));
-      const pricedProducts = products.map((item) => {
+      const pricedProducts = requestedCatalogProducts.map((item) => {
         const configured = catalogById.get(item.product.id);
         if (!configured?.isActive) throw new ProductUnavailableError(item.product.name);
         return {
@@ -216,7 +217,7 @@ export async function POST(request: NextRequest) {
       }
 
       const freeBottle = reward?.type === "FREE_BOTTLE" && parsed.data.freeBottleProductId
-        ? getProduct(parsed.data.freeBottleProductId)
+        ? catalogById.get(parsed.data.freeBottleProductId)
         : undefined;
       if (reward?.type === "FREE_BOTTLE" && !freeBottle) throw new RewardUnavailableError();
       const pricedFreeBottle = freeBottle

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { products } from "@/lib/catalog";
+import { useCatalog } from "@/components/use-catalog";
 
 type Batch = {
   id: string;
@@ -27,6 +27,7 @@ async function readResponse<T>(response: Response) {
 }
 
 export default function AdminInventoryPanel() {
+  const { products } = useCatalog();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [productId, setProductId] = useState<string>(products[0].id);
   const [batchCode, setBatchCode] = useState("");

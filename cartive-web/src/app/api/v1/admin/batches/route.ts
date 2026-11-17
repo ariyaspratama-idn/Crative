@@ -3,7 +3,7 @@ import { z } from "zod";
 import { NextRequest } from "next/server";
 import { authorizeAdmin } from "@/lib/admin-auth";
 import { getDb } from "@/lib/db";
-import { products } from "@/lib/catalog";
+import { getCatalogProducts } from "@/lib/catalog-settings";
 import { databaseUnavailableResponse, isSameOrigin } from "@/lib/security";
 
 const batchSchema = z.object({
@@ -18,11 +18,13 @@ export async function GET(request: NextRequest) {
   if ("response" in access) return access.response;
 
   try {
-    const batches = await getDb().productBatch.findMany({
+    const db = getDb();
+    const catalog = await getCatalogProducts(db);
+    const batches = await db.productBatch.findMany({
       orderBy: [{ isActive: "desc" }, { bestBeforeAt: "asc" }, { createdAt: "desc" }],
       take: 200,
     });
-    const catalogNames = new Map<string, string>(products.map((product) => [product.id, product.name]));
+    const catalogNames = new Map<string, string>(catalog.map((product) => [product.id, product.name]));
     return Response.json({
       data: batches.map((batch) => ({
         ...batch,
@@ -63,14 +65,6 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const product = products.find((entry) => entry.id === parsed.data.productId);
-  if (!product) {
-    return Response.json(
-      { data: null, error: { code: "INVALID_PRODUCT", message: "Pilih produk dari katalog Cartive." } },
-      { status: 400 },
-    );
-  }
-
   let bestBeforeAt: Date | null = null;
   if (parsed.data.bestBeforeDate) {
     bestBeforeAt = new Date(`${parsed.data.bestBeforeDate}T23:59:59.999+07:00`);
@@ -84,6 +78,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const db = getDb();
+    const product = (await getCatalogProducts(db)).find((entry) => entry.id === parsed.data.productId);
+    if (!product) {
+      return Response.json(
+        { data: null, error: { code: "INVALID_PRODUCT", message: "Pilih produk dari katalog Cartive." } },
+        { status: 400 },
+      );
+    }
     const batch = await db.$transaction(async (transaction) => {
       const created = await transaction.productBatch.create({
         data: {

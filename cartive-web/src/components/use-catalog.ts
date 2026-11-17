@@ -7,21 +7,33 @@ export type StoreCatalogProduct = Omit<CatalogProduct, "price"> & {
   price: number;
   isActive: boolean;
   quantityAvailable: number | null;
+  imageUrl: string | null;
 };
 
 type CatalogResponse = {
   data: Array<{
     id: string;
+    name: string;
+    line: string;
+    description: string;
+    note: string;
+    tone: string;
     price: number;
     isActive: boolean;
     quantityAvailable: number;
+    imageUrl: string | null;
   }> | null;
   error: { message: string } | null;
 };
 
 export function useCatalog() {
   const [catalog, setCatalog] = useState<StoreCatalogProduct[]>(() =>
-    products.map((product) => ({ ...product, isActive: true, quantityAvailable: null })),
+    products.map((product) => ({
+      ...product,
+      isActive: true,
+      quantityAvailable: null,
+      imageUrl: null,
+    })),
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -34,17 +46,8 @@ export function useCatalog() {
         if (!response.ok || body.error || body.data === null) {
           throw new Error(body.error?.message ?? "Katalog belum dapat dimuat.");
         }
-        const configured = new Map(body.data.map((product) => [product.id, product]));
         if (active) {
-          setCatalog(products.map((product) => {
-            const current = configured.get(product.id);
-            return {
-              ...product,
-              price: current?.price ?? product.price,
-              isActive: current?.isActive ?? true,
-              quantityAvailable: current?.quantityAvailable ?? null,
-            };
-          }));
+          setCatalog(body.data);
         }
       })
       .catch((loadError: unknown) => {

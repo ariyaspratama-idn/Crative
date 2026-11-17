@@ -2,16 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { products } from "@/lib/catalog";
-import ProductBottle from "@/components/product-bottle";
+import ProductBottle, { ProductArtwork } from "@/components/product-bottle";
 import ProductAddButton from "@/components/product-add-button";
 import CartLink from "@/components/cart-link";
 import CoffeeBeanIcon from "@/components/coffee-bean-icon";
 import { useTheme } from "@/components/theme-provider";
 import { useCatalog } from "@/components/use-catalog";
 
-type Line = (typeof products)[number]["line"];
-type Filter = "Semua" | Line;
+type Filter = "Semua" | string;
 const currency = new Intl.NumberFormat("id-ID");
 
 function ArrowIcon() {
@@ -41,6 +39,7 @@ export default function Home() {
   const { isDark, toggleTheme } = useTheme();
   const { products: catalog, loading: catalogLoading, error: catalogError } = useCatalog();
   const visibleProducts = catalog.filter((product) => filter === "Semua" || product.line === filter);
+  const lines = [...new Set(catalog.map((product) => product.line))];
 
   return (
     <main className={isDark ? "site-shell theme-dark" : "site-shell"}>
@@ -123,7 +122,7 @@ export default function Home() {
             <h2>Menu yang punya <em>karakter.</em></h2>
           </div>
           <p className="section-intro">
-            Dua suasana, satu botol yang pas untuk caramu menjalani hari.
+            Pilih karakter dan lini racikan yang paling pas untuk menemani harimu.
           </p>
           <Link className="text-link menu-all-link" href="/menu">
             Jelajahi semua menu <span aria-hidden="true">↗</span>
@@ -131,7 +130,7 @@ export default function Home() {
         </div>
         <div className="menu-toolbar">
           <div className="filter-tabs" role="group" aria-label="Filter lini menu">
-            {(["Semua", "Reka", "Sela"] as Filter[]).map((item) => (
+            {(["Semua", ...lines] as Filter[]).map((item) => (
               <button
                 type="button"
                 key={item}
@@ -140,7 +139,7 @@ export default function Home() {
                 aria-pressed={filter === item}
               >
                 {item}
-                {item !== "Semua" && <span className={`tab-dot tab-dot-${item.toLowerCase()}`} />}
+                {item !== "Semua" && <span className="tab-dot" />}
               </button>
             ))}
           </div>
@@ -152,11 +151,16 @@ export default function Home() {
           {visibleProducts.map((product) => (
             <article className="product-card" key={product.name}>
               <div className={`product-visual visual-${product.tone}`}>
-                <span className="product-index">0{products.findIndex((entry) => entry.id === product.id) + 1}</span>
-                <span className={`line-pill line-${product.line.toLowerCase()}`}>{product.line}</span>
+                <span className="product-index">{String(catalog.findIndex((entry) => entry.id === product.id) + 1).padStart(2, "0")}</span>
+                <span className="line-pill">{product.line}</span>
                 <CoffeeBeanIcon className="product-bean-art product-bean-art-one" />
                 <CoffeeBeanIcon className="product-bean-art product-bean-art-two" />
-                <ProductBottle tone={product.tone} />
+                <ProductArtwork
+                  tone={product.tone}
+                  imageUrl={product.imageUrl}
+                  name={product.name}
+                  line={product.line}
+                />
                 <span className="visual-spark" aria-hidden="true">✳</span>
               </div>
               <div className="product-details">

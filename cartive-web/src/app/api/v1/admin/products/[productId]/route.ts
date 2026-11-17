@@ -1,9 +1,8 @@
 import { z } from "zod";
 import { NextRequest } from "next/server";
 import { authorizeAdmin } from "@/lib/admin-auth";
-import { catalogSettingKey } from "@/lib/catalog-settings";
+import { catalogSettingKey, getCatalogProducts } from "@/lib/catalog-settings";
 import { getDb } from "@/lib/db";
-import { products } from "@/lib/catalog";
 import { databaseUnavailableResponse, isSameOrigin } from "@/lib/security";
 
 const updateSchema = z.object({
@@ -27,14 +26,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if ("response" in access) return access.response;
 
   const { productId } = await context.params;
-  const product = products.find((entry) => entry.id === productId);
-  if (!product) {
-    return Response.json(
-      { data: null, error: { code: "PRODUCT_NOT_FOUND", message: "Produk tidak ditemukan." } },
-      { status: 404 },
-    );
-  }
-
   let payload: unknown;
   try {
     payload = await request.json();
@@ -54,6 +45,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     const db = getDb();
+    const product = (await getCatalogProducts(db)).find((entry) => entry.id === productId);
+    if (!product) {
+      return Response.json(
+        { data: null, error: { code: "PRODUCT_NOT_FOUND", message: "Produk tidak ditemukan." } },
+        { status: 404 },
+      );
+    }
     const key = catalogSettingKey(product.id);
     const outcome = await db.$transaction(async (transaction) => {
       const currentSetting = await transaction.setting.findUnique({
@@ -77,6 +75,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const next = {
         price: parsed.data.price ?? previousPrice,
         isActive: parsed.data.isActive ?? previousIsActive,
+        ...(currentValue && typeof currentValue.imageKey === "string"
+          ? { imageKey: currentValue.imageKey }
+          : {}),
       };
 
       await transaction.setting.upsert({

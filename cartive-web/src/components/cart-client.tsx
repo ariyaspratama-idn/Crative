@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
-import ProductBottle from "@/components/product-bottle";
+import { ProductArtwork } from "@/components/product-bottle";
 import CoffeeBeanIcon from "@/components/coffee-bean-icon";
 import { getCartSnapshot, getServerCartSnapshot, subscribeToCart, writeCart } from "@/lib/cart-storage";
 import { getCartSubtotal } from "@/lib/web-cart";
@@ -10,9 +10,10 @@ import { useCatalog } from "@/components/use-catalog";
 
 export default function CartClient() {
   const items = useSyncExternalStore(subscribeToCart, getCartSnapshot, getServerCartSnapshot);
-  const { products: catalog } = useCatalog();
+  const { products: catalog, loading: catalogLoading, error: catalogError } = useCatalog();
   const catalogById = new Map(catalog.map((product) => [product.id, product]));
   const configuredPrices = new Map(catalog.map((product) => [product.id, product.price]));
+  const hasUnresolvedItems = items.some((item) => !catalogById.has(item.productId));
 
   const subtotal = getCartSubtotal(items, configuredPrices);
   function updateQuantity(productId: string, quantity: number) {
@@ -43,11 +44,35 @@ export default function CartClient() {
           <div className="cart-items">
             {items.map((item) => {
               const product = catalogById.get(item.productId);
-              if (!product) return null;
+              if (!product) {
+                return (
+                  <article className="cart-item" key={item.productId}>
+                    <div className="cart-item-info">
+                      <h2>
+                        {catalogLoading
+                          ? "Memuat produk…"
+                          : catalogError
+                            ? "Katalog belum dapat dimuat"
+                            : "Produk tidak lagi tersedia"}
+                      </h2>
+                      {!catalogLoading && !catalogError && (
+                        <button className="cart-remove-button" type="button" onClick={() => updateQuantity(item.productId, 0)}>
+                          Hapus dari keranjang
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              }
               return (
                 <article className="cart-item" key={item.productId}>
                   <div className={`cart-item-visual product-visual visual-${product.tone}`}>
-                    <ProductBottle tone={product.tone} />
+                    <ProductArtwork
+                      tone={product.tone}
+                      imageUrl={product.imageUrl}
+                      name={product.name}
+                      line={product.line}
+                    />
                   </div>
                   <div className="cart-item-info">
                     <p className="product-note">{product.line} · {product.note}</p>
@@ -80,14 +105,25 @@ export default function CartClient() {
           </div>
           <div className="cart-summary">
             <span>Subtotal produk</span>
-            <strong>Rp{new Intl.NumberFormat("id-ID").format(subtotal)}</strong>
+            <strong>{catalogLoading ? "Memuat…" : `Rp${new Intl.NumberFormat("id-ID").format(subtotal)}`}</strong>
           </div>
+          {catalogError && (
+            <p className="form-alert form-alert-error" role="alert">
+              Katalog gagal dimuat. Muat ulang halaman sebelum melanjutkan agar harga dan ketersediaan terbaru dapat diperiksa.
+            </p>
+          )}
           <p className="manual-order-disclaimer">
             Ongkir untuk pengantaran dikonfirmasi admin. Pembayaran belum dilakukan pada tahap ini.
           </p>
-          <Link className="button button-primary cart-checkout" href="/checkout">
-            Lanjut ke checkout
-          </Link>
+          {catalogLoading || catalogError || hasUnresolvedItems ? (
+            <button className="button button-primary cart-checkout" type="button" disabled>
+              {catalogLoading ? "Memuat katalog…" : catalogError ? "Katalog belum tersedia" : "Periksa produk di atas"}
+            </button>
+          ) : (
+            <Link className="button button-primary cart-checkout" href="/checkout">
+              Lanjut ke checkout
+            </Link>
+          )}
         </>
       )}
     </section>

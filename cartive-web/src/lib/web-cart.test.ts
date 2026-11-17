@@ -2,13 +2,17 @@ import { describe, expect, it } from "vitest";
 import { getCartSubtotal, normalizeCart } from "./web-cart";
 
 describe("web cart", () => {
-  it("drops invalid products and combines duplicate quantities within the limit", () => {
+  it("keeps valid custom product slugs and combines duplicate quantities within the limit", () => {
     expect(normalizeCart([
       { productId: "reka-classic", quantity: 2 },
       { productId: "reka-classic", quantity: 4 },
-      { productId: "unknown", quantity: 1 },
+      { productId: "kopi-liberika", quantity: 1 },
+      { productId: "../invalid", quantity: 1 },
       { productId: "sela-ice-creamy", quantity: "3" },
-    ])).toEqual([{ productId: "reka-classic", quantity: 6 }]);
+    ])).toEqual([
+      { productId: "reka-classic", quantity: 6 },
+      { productId: "kopi-liberika", quantity: 1 },
+    ]);
   });
 
   it("calculates subtotals from the trusted catalog prices", () => {

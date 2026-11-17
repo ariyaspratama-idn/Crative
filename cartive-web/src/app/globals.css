@@ -3898,6 +3898,39 @@ a:focus-visible {
     margin-top: 24px;
   }
 
+  .admin-password-control {
+    position: relative;
+    display: block;
+  }
+
+  .admin-password-control input {
+    padding-right: 82px;
+  }
+
+  .admin-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    translate: 0 -50%;
+    border: 0;
+    background: transparent;
+    color: var(--accent-deep);
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    cursor: pointer;
+  }
+
+  .admin-password-toggle svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   .admin-title-row,
   .admin-claim-heading,
   .admin-claim-actions {
@@ -5137,6 +5170,64 @@ a:focus-visible {
   pointer-events: none;
 }
 
+.product-photo-scene {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: min(72%, 260px);
+  height: 82%;
+  animation: product-photo-float 5s ease-in-out infinite;
+}
+
+.product-photo {
+  object-fit: contain;
+  filter: drop-shadow(0 22px 18px rgb(42 26 16 / 20%));
+}
+
+.admin-create-product {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.admin-create-product h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 16px;
+}
+
+.admin-create-product .admin-button {
+  align-self: end;
+}
+
+.admin-create-product textarea,
+.admin-create-product input,
+.admin-create-product select,
+.admin-product-row input[type="file"] {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.admin-create-product textarea {
+  resize: vertical;
+}
+
+@keyframes product-photo-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -7px; }
+}
+
 .page-transition .site-header,
 .page-transition .admin-header {
   animation: content-arrive 560ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
@@ -6262,6 +6353,10 @@ a:focus-visible {
   }
 
   .admin-product-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-create-product {
     grid-template-columns: 1fr;
   }
 

@@ -2,25 +2,25 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { products } from "@/lib/catalog";
-import ProductBottle from "@/components/product-bottle";
+import { ProductArtwork } from "@/components/product-bottle";
 import ProductAddButton from "@/components/product-add-button";
 import CoffeeBeanIcon from "@/components/coffee-bean-icon";
 import { useCatalog } from "@/components/use-catalog";
 
-type Line = "Semua" | (typeof products)[number]["line"];
+type Line = "Semua" | string;
 export default function MenuCatalog() {
   const [selectedLine, setSelectedLine] = useState<Line>("Semua");
   const { products: catalog, loading, error } = useCatalog();
   const visibleProducts = catalog.filter(
     (product) => selectedLine === "Semua" || product.line === selectedLine,
   );
+  const lines = [...new Set(catalog.map((product) => product.line))];
   const currency = new Intl.NumberFormat("id-ID");
 
   return (
     <>
       <div className="menu-page-filters" role="group" aria-label="Filter lini menu">
-        {(["Semua", "Reka", "Sela"] as const).map((line) => (
+        {(["Semua", ...lines] as const).map((line) => (
           <button
             className={selectedLine === line ? "filter-tab active" : "filter-tab"}
             type="button"
@@ -55,12 +55,17 @@ export default function MenuCatalog() {
               aria-label={`Lihat detail ${product.name}`}
             >
               <span className="product-index">
-                0{products.findIndex((entry) => entry.id === product.id) + 1}
+                {String(catalog.findIndex((entry) => entry.id === product.id) + 1).padStart(2, "0")}
               </span>
-              <span className={`line-pill line-${product.line.toLowerCase()}`}>{product.line}</span>
+              <span className="line-pill">{product.line}</span>
               <CoffeeBeanIcon className="product-bean-art product-bean-art-one" />
               <CoffeeBeanIcon className="product-bean-art product-bean-art-two" />
-              <ProductBottle tone={product.tone} />
+              <ProductArtwork
+                tone={product.tone}
+                imageUrl={product.imageUrl}
+                name={product.name}
+                line={product.line}
+              />
               <span className="visual-spark" aria-hidden="true">✳</span>
             </Link>
             <div className="product-details">

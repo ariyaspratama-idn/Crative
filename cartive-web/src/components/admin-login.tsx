@@ -11,6 +11,7 @@ type LoginResponse = {
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -66,15 +67,40 @@ export default function AdminLogin() {
             </label>
             <label className="admin-field">
               Kata sandi
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                maxLength={256}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                disabled={busy}
-              />
+              <span className="admin-password-control">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  maxLength={256}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={busy}
+                />
+                <button
+                  className="admin-password-toggle"
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+                  aria-pressed={showPassword}
+                  disabled={busy}
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                    {showPassword ? (
+                      <>
+                        <path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+                        <path d="M9.9 5.2A10.7 10.7 0 0 1 12 5c5.2 0 8.6 4.3 9.5 6-.4.8-1.4 2.1-2.8 3.2M6.2 6.2C3.9 7.5 2.7 9.5 2.5 11c.9 1.7 4.3 6 9.5 6 1 0 1.9-.2 2.7-.5" />
+                      </>
+                    ) : (
+                      <>
+                        <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" />
+                        <circle cx="12" cy="12" r="2.5" />
+                      </>
+                    )}
+                  </svg>
+                  <span className="sr-only">{showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}</span>
+                </button>
+              </span>
             </label>
             {error && <p className="admin-error" role="alert">{error}</p>}
             <button className="admin-button admin-button-approve" type="submit" disabled={busy}>

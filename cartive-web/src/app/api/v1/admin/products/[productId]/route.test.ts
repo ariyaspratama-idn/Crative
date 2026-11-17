@@ -9,6 +9,17 @@ vi.mock("@/lib/admin-auth", () => ({
 }));
 vi.mock("@/lib/catalog-settings", () => ({
   catalogSettingKey: (id: string) => `catalog.product.${id}`,
+  getCatalogProducts: vi.fn(async () => [{
+    id: "reka-classic",
+    name: "Reka Classic",
+    line: "Reka",
+    description: "Test",
+    note: "Bold · 250 ml",
+    tone: "espresso",
+    price: 12000,
+    isActive: true,
+    imageUrl: null,
+  }]),
 }));
 vi.mock("@/lib/db", () => ({ getDb: vi.fn() }));
 vi.mock("@/lib/security", () => ({
