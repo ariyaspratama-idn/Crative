@@ -9,6 +9,44 @@ export type MysqlConnectionOptions = {
   ssl?: { rejectUnauthorized: true };
 };
 
+export function resolveDatabaseUrl(
+  environment: Record<string, string | undefined>,
+  options: { requireTls?: boolean } = {},
+) {
+  const componentNames = [
+    "DB_HOST",
+    "DB_PORT",
+    "DB_USERNAME",
+    "DB_PASSWORD",
+    "DB_DATABASE",
+  ] as const;
+  const hasAllComponents = componentNames.every((name) => environment[name]?.trim());
+
+  if (!hasAllComponents) {
+    const connectionString = environment.DATABASE_URL?.trim();
+    if (connectionString) return connectionString;
+
+    throw new Error(
+      "Atur DATABASE_URL atau lengkapi DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, dan DB_DATABASE.",
+    );
+  }
+
+  const port = Number(environment.DB_PORT);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("DB_PORT harus berupa angka antara 1 sampai 65535.");
+  }
+
+  const url = new URL("mysql://localhost");
+  url.hostname = environment.DB_HOST!.trim();
+  url.port = String(port);
+  url.username = environment.DB_USERNAME!.trim();
+  url.password = environment.DB_PASSWORD!;
+  url.pathname = `/${encodeURIComponent(environment.DB_DATABASE!.trim())}`;
+  if (options.requireTls) url.searchParams.set("sslaccept", "strict");
+
+  return url.toString();
+}
+
 export function parseMysqlConnectionOptions(
   connectionString: string,
   options: { requireTls?: boolean; connectionLimit?: number } = {},
@@ -21,7 +59,7 @@ export function parseMysqlConnectionOptions(
   }
 
   if (url.protocol !== "mysql:" || !url.hostname || !url.username) {
-    throw new Error("DATABASE_URL harus memakai skema mysql:// dan memiliki host serta user.");
+    throw new Error("Koneksi database harus memakai skema mysql:// dan memiliki host serta user.");
   }
 
   const sslMode = url.searchParams.get("sslaccept");
@@ -34,7 +72,7 @@ export function parseMysqlConnectionOptions(
 
   const port = url.port ? Number(url.port) : 3306;
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error("Port DATABASE_URL tidak valid.");
+    throw new Error("Port koneksi database tidak valid.");
   }
 
   const connectionLimit = options.connectionLimit ?? 4;
@@ -43,7 +81,7 @@ export function parseMysqlConnectionOptions(
   }
 
   const database = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
-  if (!database) throw new Error("Nama database belum dicantumkan di DATABASE_URL.");
+  if (!database) throw new Error("Nama database belum dicantumkan pada konfigurasi koneksi.");
 
   return {
     host: url.hostname,
