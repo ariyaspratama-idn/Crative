@@ -61,6 +61,28 @@ describe("POST /api/v1/claims anti-bot controls", () => {
     });
   }
 
+  it("rejects a receipt above 4 MB before rate-limit or storage operations", async () => {
+    const form = new FormData();
+    form.set("platform", "GOFOOD");
+    form.set("orderId", "F-123456789012");
+    form.set("bottleCount", "1");
+    form.set("orderedAt", "2026-11-18T10:00");
+    form.set("receipt", new File([new Uint8Array(4 * 1024 * 1024 + 1)], "receipt.jpg", { type: "image/jpeg" }));
+    const request = new NextRequest("http://localhost/api/v1/claims", {
+      method: "POST",
+      headers: { origin: "http://localhost" },
+      body: form,
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({
+      error: { code: "INVALID_FILE_SIZE" },
+    });
+    expect(claim.count).not.toHaveBeenCalled();
+  });
+
   it("rejects a filled honeypot before claim validation or storage access", async () => {
     const response = await POST(makeRequest({ website: "https://spam.example" }));
 

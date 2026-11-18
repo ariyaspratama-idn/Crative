@@ -180,9 +180,9 @@ export async function POST(request: NextRequest) {
         { status: 422 },
       );
     }
-    if (receipt.size === 0 || receipt.size > 5 * 1024 * 1024) {
+    if (receipt.size === 0 || receipt.size > 4 * 1024 * 1024) {
       return Response.json(
-        { data: null, error: { code: "INVALID_FILE_SIZE", message: "Foto struk harus berukuran antara 1 byte dan 5 MB." } },
+        { data: null, error: { code: "INVALID_FILE_SIZE", message: "Foto struk harus berukuran antara 1 byte dan 4 MB." } },
         { status: 413 },
       );
     }

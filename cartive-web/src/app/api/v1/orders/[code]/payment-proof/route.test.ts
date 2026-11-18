@@ -59,6 +59,26 @@ describe("POST /api/v1/orders/[code]/payment-proof", () => {
     } as never);
   });
 
+  it("rejects payment-proof files above 4 MB before reading the order", async () => {
+    const form = new FormData();
+    form.append("proof", new File([new Uint8Array(4 * 1024 * 1024 + 1)], "proof.jpg", { type: "image/jpeg" }));
+    const request = new NextRequest("http://localhost/api/v1/orders/CRT-260101-ABC123/payment-proof", {
+      method: "POST",
+      headers: { origin: "http://localhost" },
+      body: form,
+    });
+
+    const response = await POST(request, {
+      params: Promise.resolve({ code: "CRT-260101-ABC123" }),
+    });
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({
+      error: { code: "INVALID_FILE_SIZE" },
+    });
+    expect(webOrder.findFirst).not.toHaveBeenCalled();
+  });
+
   it("returns a conflict and removes the stored file when another order claims the same proof concurrently", async () => {
     const form = new FormData();
     form.append("proof", new File([Buffer.from("proof")], "proof.jpg", { type: "image/jpeg" }));

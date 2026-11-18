@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import type { NextRequest } from "next/server";
+import { getTrustedRequestIp } from "@/lib/request-ip";
 
 export const SESSION_COOKIE = "cartive_session";
 export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
@@ -43,14 +44,10 @@ export function hashRateLimitKey(value: string, secret = getSessionSecret()) {
 }
 
 export function getRequestIp(request: NextRequest) {
-  const cloudflareIp = request.headers.get("cf-connecting-ip");
-  if (cloudflareIp) return cloudflareIp.trim();
-
-  if (process.env.NODE_ENV !== "production") {
-    return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  }
-
-  return null;
+  return getTrustedRequestIp(request.headers, {
+    vercel: process.env.VERCEL,
+    nodeEnv: process.env.NODE_ENV,
+  });
 }
 
 export function isSameOrigin(request: NextRequest) {

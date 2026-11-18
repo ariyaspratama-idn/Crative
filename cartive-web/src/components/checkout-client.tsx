@@ -187,8 +187,16 @@ export default function CheckoutClient() {
               {error.includes("Masuk") && <Link href="/kartu">Masuk / buat Fuel Card</Link>}
             </div>
           )}
-          <button className="button button-primary submit-button" type="submit" disabled={busy || catalogLoading || unavailableItems.length > 0}>
-            {busy ? "Membuat pesanan…" : "Buat pesanan"} <span aria-hidden="true">↗</span>
+          <button className="button button-primary submit-button" type="submit" disabled={busy || catalogLoading || Boolean(catalogError) || unavailableItems.length > 0}>
+            {busy
+              ? "Membuat pesanan…"
+              : catalogLoading
+                ? "Memuat katalog…"
+                : catalogError
+                  ? "Katalog belum tersedia"
+                  : unavailableItems.length > 0
+                    ? "Periksa produk di atas"
+                    : "Buat pesanan"} <span aria-hidden="true">↗</span>
           </button>
         </div>
         <aside className="checkout-summary">

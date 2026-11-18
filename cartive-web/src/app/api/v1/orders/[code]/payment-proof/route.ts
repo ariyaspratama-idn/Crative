@@ -48,9 +48,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const form = await request.formData();
     const file = form.get("proof");
-    if (!(file instanceof File) || file.size === 0 || file.size > 5 * 1024 * 1024) {
+    if (!(file instanceof File) || file.size === 0 || file.size > 4 * 1024 * 1024) {
       return Response.json(
-        { data: null, error: { code: "INVALID_FILE_SIZE", message: "Pilih foto bukti pembayaran maksimal 5 MB." } },
+        { data: null, error: { code: "INVALID_FILE_SIZE", message: "Pilih foto bukti pembayaran maksimal 4 MB." } },
         { status: 413 },
       );
     }

@@ -236,6 +236,11 @@ export default function KartuClient() {
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
+    const receipt = formData.get("receipt");
+    if (receipt instanceof File && receipt.size > 4 * 1024 * 1024) {
+      setPageError("Ukuran foto struk melebihi 4 MB. Kompres atau pilih foto lain.");
+      return;
+    }
     formData.set("turnstileToken", claimTurnstileToken);
     setBusy(true);
     setPageError("");
@@ -492,7 +497,7 @@ export default function KartuClient() {
                   <label>
                     Foto struk
                     <input name="receipt" type="file" accept="image/jpeg,image/png,image/webp,image/heic" required />
-                    <span className="field-hint">JPG, PNG, WEBP, atau HEIC · maksimal 5 MB</span>
+                    <span className="field-hint">JPG, PNG, WEBP, atau HEIC · maksimal 4 MB</span>
                   </label>
                   <label
                     className="honeypot-field"

@@ -76,11 +76,17 @@ export default function OrderStatusClient({ code }: { code: string }) {
 
   async function submitProof(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const file = new FormData(form).get("proof");
+    if (!(file instanceof File) || file.size === 0 || file.size > 4 * 1024 * 1024) {
+      setError("Pilih foto bukti pembayaran yang valid dengan ukuran maksimal 4 MB.");
+      return;
+    }
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const formData = new FormData(event.currentTarget);
+      const formData = new FormData(form);
       await readResponse(await fetch(`/api/v1/orders/${encodeURIComponent(code)}/payment-proof`, {
         method: "POST",
         body: formData,
@@ -185,6 +191,7 @@ export default function OrderStatusClient({ code }: { code: string }) {
                         <label className="manual-order-field">
                           Unggah bukti pembayaran
                           <input name="proof" type="file" accept="image/jpeg,image/png,image/webp,image/heic" required />
+                          <span className="field-hint">JPG, PNG, WEBP, atau HEIC · maksimal 4 MB</span>
                         </label>
                         <button className="button button-primary" type="submit" disabled={busy}>
                           {busy ? "Mengirim…" : "Kirim bukti pembayaran"}
@@ -203,6 +210,7 @@ export default function OrderStatusClient({ code }: { code: string }) {
                           <label className="manual-order-field">
                             Gambar contoh untuk pengujian
                             <input name="proof" type="file" accept="image/jpeg,image/png,image/webp,image/heic" required />
+                            <span className="field-hint">JPG, PNG, WEBP, atau HEIC · maksimal 4 MB</span>
                           </label>
                           <button className="button button-primary" type="submit" disabled={busy}>
                             {busy ? "Mengirim…" : "Kirim gambar contoh"}

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getCatalogProductImageKey } from "@/lib/catalog-settings";
 import { readCatalogImage } from "@/lib/catalog-image-storage";
 import { getDb } from "@/lib/db";
-import { ConfigurationError } from "@/lib/security";
+import { ConfigurationError, databaseUnavailableResponse } from "@/lib/security";
 
 type RouteContext = { params: Promise<{ productId: string }> };
 
@@ -27,6 +27,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     if (error instanceof ConfigurationError) return new Response(null, { status: 503 });
+    const unavailable = databaseUnavailableResponse(error);
+    if (unavailable) {
+      return new Response(null, {
+        status: unavailable.status,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
     throw error;
   }
 }
